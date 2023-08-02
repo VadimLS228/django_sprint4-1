@@ -50,7 +50,7 @@ class HelpList(ListView):
                 is_published=True) & Q(
                 category__is_published=True) & Q(
                 pub_date__lte=timezone.now())
-            )
+        )
         return queryset
 
 
