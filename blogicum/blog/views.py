@@ -42,15 +42,15 @@ class HelpList(ListView):
         queryset = super().get_queryset(*args, **kwargs)
         # Отфильтровать все посты для авторов публикаций
         queryset = Post.objects.select_related(
-                'author', 'location', 'category').filter(
-                Q(author__username=self.request.user.username) & Q(
-                        category__is_published=True) | ~Q(
-                        #  и только опубликованные посты для неавторов,.
-                        author__username=self.request.user.username) & Q(
-                            is_published=True) & Q(
-                            category__is_published=True) & Q(
-                            pub_date__lte=timezone.now())
-                    )
+            'author', 'location', 'category').filter(
+            Q(author__username=self.request.user.username) & Q(
+                category__is_published=True) | ~Q(
+                #  и только опубликованные посты для неавторов.
+                author__username=self.request.user.username) & Q(
+                is_published=True) & Q(
+                category__is_published=True) & Q(
+                pub_date__lte=timezone.now())
+            )
         return queryset
 
 
@@ -67,7 +67,7 @@ class PostListView(HelpList):
             category__is_published=True
         ).order_by('-pub_date').annotate(
             comment_count=Count('comments')
-            )
+        )
         return queryset
 
 
@@ -80,19 +80,19 @@ class CategoryListView(HelpList):
         queryset = super().get_queryset(*args, **kwargs)
         category = get_object_or_404(
             Category, slug=self.kwargs.get('slug'), is_published=True
-            )
+        )
         queryset = Post.objects.filter(
             category=category, is_published=True, pub_date__lte=timezone.now()
-            ).order_by('-pub_date').annotate(
+        ).order_by('-pub_date').annotate(
             comment_count=Count('comments')
-            )
+        )
         return queryset
 
     def get_context_data(self, *args, **kwargs):
         context = super().get_context_data(*args, **kwargs)
         context['category'] = get_object_or_404(
             Category, slug=self.kwargs.get('slug')
-            )
+        )
         return context
 
 
@@ -107,14 +107,14 @@ class ProfileDetailView(HelpList):
         queryset = Post.objects.filter(
             author=user).order_by('-pub_date').annotate(
             comment_count=Count('comments')
-            )
+        )
         return queryset
 
     def get_context_data(self, *args, **kwargs):
         context = super().get_context_data(*args, **kwargs)
         context['profile'] = get_object_or_404(
             User, username=self.kwargs.get('username')
-            )
+        )
         return context
 
 
@@ -196,7 +196,7 @@ class PostUpdateView(LoginRequiredMixin, UpdateView):
         post_id = self.get_object().pk
         return reverse(
             'blog:post_detail', kwargs={'post_id': post_id}
-            )
+        )
 
 
 class ProfileUpdateView(LoginRequiredMixin, UpdateView):
@@ -330,4 +330,4 @@ class CommentDeleteView(LoginRequiredMixin, DeleteView):
     def get_success_url(self):
         return reverse(
             'blog:post_detail', kwargs={'post_id': self.post_data.pk}
-            )
+        )
