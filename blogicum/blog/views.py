@@ -121,18 +121,20 @@ class ProfileDetailView(HelpList):
 class PostDetailView(DetailView):
     '''Отображение отдельного поста.'''
 
+    model = Post
     template_name = 'blog/detail.html'
     pk_url_kwarg = 'post_id'
 
     def get_object(self):
-        obj = get_object_or_404(Post, pk=self.kwargs['post_id'])
+        # obj = get_object_or_404(Post, pk=self.kwargs['post_id'])
+        post = super().get_object()
         if (
-            obj.author != self.request.user) and (
-            not obj.is_published or (obj.pub_date > timezone.now())
-            or not obj.category.is_published
+            post.author != self.request.user) and (
+            not post.is_published or (post.pub_date > timezone.now())
+            or not post.category.is_published
         ):
             raise Http404
-        return obj
+        return post
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
