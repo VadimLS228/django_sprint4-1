@@ -2,14 +2,13 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.exceptions import PermissionDenied
 from django.db.models import Count
 from django.db.models import Q
 # from django.forms.models import BaseModelForm
 from django.http import HttpResponse
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import (CreateView, DeleteView, DetailView, ListView,
                                   UpdateView)
@@ -122,26 +121,18 @@ class ProfileDetailView(HelpList):
 class PostDetailView(DetailView):
     '''Отображение отдельного поста.'''
 
-    # Используемая модель.
-    model = Post
     template_name = 'blog/detail.html'
     pk_url_kwarg = 'post_id'
 
-    def get_queryset(self):
-        return Post.objects.filter(
-            category__is_published=True,
-            is_published=True,
-            pub_date__lt=timezone.now(),
-        )
-        
-    # def dispatch(self, request, *args, **kwargs):
-        # Если пост снят с публикации.
-        # if not self.get_object().is_published:
-            # Проверить, является ли пользователь из запроса автором поста.
-            # if self.get_object().author != self.request.user:
-                # Если нет-ошибка .
-                # raise Http404
-        # return super().dispatch(request, args, **kwargs)
+    def get_object(self):
+        obj = get_object_or_404(Post, pk=self.kwargs['post_id'])
+        if (
+            obj.author != self.request.user) and (
+            not obj.is_published or (obj.pub_date > timezone.now())
+            or not obj.category.is_published
+        ):
+            raise Http404
+        return obj
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
