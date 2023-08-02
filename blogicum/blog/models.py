@@ -110,13 +110,13 @@ class Post(PostCreationModel):
         Category,
         on_delete=models.SET_NULL,
         null=True,
+        related_name='posts',
         verbose_name='Категория',
     )
 
     class Meta:
         verbose_name = 'публикация'
         verbose_name_plural = 'Публикации'
-        ordering = ('-pub_date',)
 
     def __str__(self):
         return self.title[:SHOW_SYMBOLS]

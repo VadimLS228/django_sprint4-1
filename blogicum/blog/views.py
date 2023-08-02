@@ -1,16 +1,20 @@
+# from typing import Any, Dict
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count
+from django.db.models import Q
+# from django.forms.models import BaseModelForm
 from django.http import HttpResponse
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.generic import (CreateView, DeleteView, DetailView, ListView,
                                   UpdateView)
 
-from .forms import CommentForm, PostForm
+from .forms import CommentForm, PostForm, ProfileForm
 from .models import Category, Post, Comment
 
 
@@ -24,27 +28,6 @@ def simple_view(request):
     return HttpResponse('Страница для залогиненных пользователей!')
 
 
-'''
-@login_required
-def add_comment(request, pk):
-    # Получаем публикацию или выбрасываем 404 ошибку.
-    post = get_object_or_404(Post, pk=pk)
-    # Функция должна обрабатывать только POST-запросы.
-    form = CommentForm(request.POST)
-    if form.is_valid():
-        # Создаём объект комментария, но не сохраняем его в БД.
-        comment = form.save(commit=False)
-        # В поле author передаём объект автора коммента.
-        comment.author = request.user
-        # В поле поста передаём объект поста.
-        comment.post = post
-        # Сохраняем объект в БД.
-        comment.save()
-    # Перенаправляем пользователя назад, на страницу поста.
-    return redirect('post:detail', pk=pk)
-'''
-
-
 class HelpList(ListView):
     """
     Вспомогательный CBV:
@@ -54,75 +37,122 @@ class HelpList(ListView):
 
     model = Post
     paginate_by = 10
-    ordering = '-pub_date'
 
-    # Получаем список постов в соотв-ии с авторм/местом/категорией.
-    # Фильтруем только опубликованные.
+    # Получить список постов в соотв-ии с авторм/местом/категорией.
+    def get_queryset(self, *args, **kwargs):
+        queryset = super().get_queryset(*args, **kwargs)
+        # Отфильтровать все посты для авторов публикаций
+        queryset = Post.objects.select_related(
+                'author', 'location', 'category').filter(
+                Q(author__username=self.request.user.username) & Q(
+                        category__is_published=True) | ~Q(
+                        #  и только опубликованные посты для неавторов,.
+                        author__username=self.request.user.username) & Q(
+                            is_published=True) & Q(
+                            category__is_published=True) & Q(
+                            pub_date__lte=timezone.now())
+                    )
+        return queryset
 
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        return queryset.select_related(
-            'author', 'location', 'category'
-        ).filter(is_published=True,
-                 category__is_published=True,
-                 pub_date__lte=timezone.now()
-                 ).annotate(comment_count=Count('comments'))
 
-
-class PostListView(HelpList, ListView):
+class PostListView(HelpList):
     '''Отображение списка постов на главной странице.'''
 
     template_name = 'blog/index.html'
 
+    def get_queryset(self, *args, **kwargs):
+        queryset = super().get_queryset(*args, **kwargs)
+        queryset = Post.objects.filter(
+            is_published=True,
+            pub_date__lte=timezone.now(),
+            category__is_published=True
+        ).order_by('-pub_date').annotate(
+            comment_count=Count('comments')
+            )
+        return queryset
 
-class CategoryListView(HelpList, ListView):
+
+class CategoryListView(HelpList):
     '''Отображение списка постов конкретной категории.'''
 
     template_name = 'blog/category.html'
-    model = Category
 
-    # Получаем список постов в соотв-ии с категорией.
-    def get_queryset(self):
-        self.category = get_object_or_404(
-            Category, slug=self.kwargs['category_slug'], is_published=True)
-        return super().get_queryset().filter(category=self.category)
+    def get_queryset(self, *args, **kwargs):
+        queryset = super().get_queryset(*args, **kwargs)
+        category = get_object_or_404(
+            Category, slug=self.kwargs.get('slug'), is_published=True
+            )
+        queryset = Post.objects.filter(
+            category=category, is_published=True, pub_date__lte=timezone.now()
+            ).order_by('-pub_date').annotate(
+            comment_count=Count('comments')
+            )
+        return queryset
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['category'] = self.category
+    def get_context_data(self, *args, **kwargs):
+        context = super().get_context_data(*args, **kwargs)
+        context['category'] = get_object_or_404(
+            Category, slug=self.kwargs.get('slug')
+            )
         return context
 
 
-class ProfileDetailView(HelpList, ListView):
+class ProfileDetailView(HelpList):
     '''Отображение страницы конкретного пользователя со всеми его постами.'''
+
     template_name = 'blog/profile.html'
 
     def get_queryset(self, *args, **kwargs):
-        return super().get_queryset(*args, **kwargs).filter(
-            author=self.kwargs['username']
-        )
+        queryset = super().get_queryset(*args, **kwargs)
+        user = get_object_or_404(User, username=self.kwargs.get('username'))
+        queryset = Post.objects.filter(
+            author=user).order_by('-pub_date').annotate(
+            comment_count=Count('comments')
+            )
+        return queryset
 
     def get_context_data(self, *args, **kwargs):
         context = super().get_context_data(*args, **kwargs)
         context['profile'] = get_object_or_404(
-            get_user_model(),
-            username=self.kwargs['username']
-        )
+            User, username=self.kwargs.get('username')
+            )
         return context
 
 
 class PostDetailView(DetailView):
     '''Отображение отдельного поста.'''
+
     # Используемая модель.
     model = Post
     template_name = 'blog/detail.html'
+    pk_url_kwarg = 'post_id'
+
+    def get_queryset(self):
+        return Post.objects.filter(
+            category__is_published=True,
+            is_published=True,
+            pub_date__lt=timezone.now(),
+        )
+        
+    # def dispatch(self, request, *args, **kwargs):
+        # Если пост снят с публикации.
+        # if not self.get_object().is_published:
+            # Проверить, является ли пользователь из запроса автором поста.
+            # if self.get_object().author != self.request.user:
+                # Если нет-ошибка .
+                # raise Http404
+        # return super().dispatch(request, args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Записываем в переменную form пустой объект формы.
+
+        # Записать в переменную form пустой объект формы.
         context['form'] = CommentForm()
-        # Запрашиваем все комменты для выбранного поста
-        context['comments'] = self.object.comments.select_related('author')
+        # Запросить все комменты для выбранного поста
+        # Дополнительно подгрузить авторов комментариев
+        context['comments'] = (
+            self.object.comments.select_related('author')
+        )
         return context
 
 
@@ -144,96 +174,167 @@ class PostCreateView(LoginRequiredMixin, CreateView):
 
 
 class PostUpdateView(LoginRequiredMixin, UpdateView):
+
     model = Post
     form_class = PostForm
+    template_name = 'blog/create.html'
+    pk_url_kwarg = 'post_id'
 
     def dispatch(self, request, *args, **kwargs):
-        # При получении объекта не указываем автора.
-        # Результат сохраняем в переменную.
-        instance = get_object_or_404(Post, pk=kwargs['pk'])
-        # Сверяем автора объекта и пользователя из запроса.
-        if instance.author != request.user:
-            # Здесь может быть вызов ошибки,или редирект на нужную страницу.
-            raise PermissionDenied
-        return super().dispatch(request, *args, **kwargs)
+        # Проверить, является ли пользователь из запроса автором поста.
+        if self.get_object().author != self.request.user:
+            # Если нет-перенаправление на стр поста.
+            return redirect('blog:post_detail', post_id=kwargs['post_id'])
+        return super().dispatch(request, args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        # получить данные поста по первичному ключу.
+        context = super().get_context_data(**kwargs)
+        context['post'] = get_object_or_404(Post, pk=self.kwargs['post_id'])
+        return context
+
+    def form_valid(self, form):
+        # Приcвоить полю author объект пользователя из запроса.
+        form.instance.author = self.request.user
+        # Продолжить валидацию, описанную в форме
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        post_id = self.get_object().pk
+        return reverse(
+            'blog:post_detail', kwargs={'post_id': post_id}
+            )
 
 
 class ProfileUpdateView(LoginRequiredMixin, UpdateView):
+
+    form_class = ProfileForm
     model = User
     template_name = 'blog/user.html'
+    context_object_name = 'user'
+    queryset = User.objects.all()
+
+    def get_context_data(self, **kwargs):
+        # получить данные профиля по первичному ключу.
+        instance = get_object_or_404(User, pk=self.kwargs.get('pk'))
+        form = ProfileForm(instance=instance)
+        context = super().get_context_data(**kwargs)
+        context['form'] = form
+        return context
 
     def get_success_url(self):
-        return reverse('blog:profile', args=(self.request.user.username,))
-
-    def form_valid(self, form):
-        return super().form_valid(form)
+        username = self.request.user.username
+        return reverse('blog:profile', kwargs={'username': username})
 
 
 class PostDeleteView(LoginRequiredMixin, DeleteView):
+
     model = Post
-    success_url = reverse_lazy('blog:profile')
+    template_name = 'blog/profile.html'
+    pk_url_kwarg = 'post_id'
 
     def dispatch(self, request, *args, **kwargs):
-        # При получении объекта не указываем автора.
-        # Результат сохраняем в переменную.
-        instance = get_object_or_404(Post, pk=kwargs['pk'])
-        # Сверяем автора объекта и пользователя из запроса.
-        if instance.author != request.user:
-            # Здесь может быть вызов ошибки,или редирект на нужную страницу.
-            raise PermissionDenied
-        return super().dispatch(request, *args, **kwargs)
+        # Проверить, является ли пользователь из запроса автором поста.
+        if self.get_object().author != self.request.user:
+            # Если нет-перенаправление на стр поста.
+            return redirect('blog:post_detail', post_id=kwargs['post_id'])
+        return super().dispatch(request, args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        # получить данные поста по первичному ключу.
+        context = super().get_context_data(**kwargs)
+        context['post'] = get_object_or_404(Post, pk=self.kwargs['post_id'])
+        return context
+
+    def get_success_url(self):
+        username = self.request.user.username
+        return reverse('blog:profile', kwargs={'username': username})
 
 
 class CommentCreateView(LoginRequiredMixin, CreateView):
-
+    post_data = None
     model = Comment
     form_class = CommentForm
     template_name = 'blog/comment.html'
+    pk_url_kwarg = 'comment_id'
 
     def dispatch(self, request, *args, **kwargs):
-        self.post_obj = get_object_or_404(Post, pk=kwargs['pk'])
-        return super().dispatch(request, *args, **kwargs)
+        # Проверить, есть ли в базе объект поста с переданным в запросе pk.
+        self.post_data = get_object_or_404(Post, pk=kwargs['post_id'])
+        return super().dispatch(request, args, **kwargs)
 
     def form_valid(self, form):
+        # Переопределить поля формы,присвоив им значения
+        # автора запроса(комментария) и комментируемого поста.
         form.instance.author = self.request.user
-        form.instance.post_id = self.post_obj
+        form.instance.post = self.post_data
         return super().form_valid(form)
 
     def get_success_url(self):
-        return reverse('blog:post_detail',
-                       kwargs={'post_id': self.post_obj.pk})
+        # После отправки коммента перенаправить пользователя на страницу поста
+        return reverse(
+            'blog:post_detail', kwargs={'post_id': self.post_data.pk}
+        )
 
 
 class CommentUpdateView(LoginRequiredMixin, UpdateView):
+    post_data = None
     model = Comment
     form_class = CommentForm
     template_name = 'blog/comment.html'
-    post_data = None
     pk_url_kwarg = 'comment_id'
 
     def dispatch(self, request, *args, **kwargs):
-        if self.get_object().author != self.request.user:
-            return redirect('blog:post_detail', pk=self.kwargs['pk'])
-        self.post_data = get_object_or_404(Post, pk=kwargs['pk'])
+        # Проверить, является ли пользователь из запроса автором коммента.
+        if self.get_object().author.username != self.request.user.username:
+            # Если нет - перенаправить на страницу деталей поста.
+            return redirect('blog:post_detail', post_id=kwargs['post_id'])
+        # Если да - получить объект поста для дальнейшей работы.
+        self.post_data = get_object_or_404(Post, id=kwargs['post_id'])
         return super().dispatch(request, args, **kwargs)
 
+    def get_context_data(self, **kwargs):
+        # получить данные комментария по первичному ключу.
+        instance = get_object_or_404(Comment, pk=self.kwargs['comment_id'])
+        form = CommentForm(instance=instance)
+        context = super().get_context_data(**kwargs)
+        context['form'] = form
+        return context
+
+    def form_valid(self, form):
+        # Приcвоить полю author объект пользователя из запроса.
+        form.instance.author = self.request.user
+        # Приcвоить полю post объект публикации
+        form.instance.post = self.post_data
+        # Продолжить валидацию, описанную в форме
+        return super().form_valid(form)
+
     def get_success_url(self):
-        pk = self.post_data.pk
-        return reverse('blog:post_detail', kwargs={'post_id': pk})
+        return reverse(
+            'blog:post_detail', kwargs={'post_id': self.post_data.pk})
 
 
 class CommentDeleteView(LoginRequiredMixin, DeleteView):
+    post_data = None
     model = Comment
     template_name = 'blog/comment.html'
     pk_url_kwarg = 'comment_id'
 
     def dispatch(self, request, *args, **kwargs):
-        if self.get_object().author != self.request.user:
-            return redirect('blog:post_detail', pk=self.kwargs['pk'])
-        self.post_data = get_object_or_404(Post, pk=kwargs['pk'])
+        if self.get_object().author.username != self.request.user.username:
+            return redirect('blog:post_detail', post_id=kwargs['post_id'])
+        self.post_data = get_object_or_404(Post, id=kwargs['post_id'])
         return super().dispatch(request, *args, **kwargs)
 
+    def get_context_data(self, **kwargs):
+        # получить данные комментария по первичному ключу.
+        context = super().get_context_data(**kwargs)
+        context['comment'] = get_object_or_404(
+            Comment, pk=self.kwargs['comment_id']
+        )
+        return context
+
     def get_success_url(self):
-        pk = self.post_data.pk
-        return reverse('blog:post_detail',
-                       kwargs={'post_id': pk})
+        return reverse(
+            'blog:post_detail', kwargs={'post_id': self.post_data.pk}
+            )
