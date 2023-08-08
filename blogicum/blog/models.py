@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import models
+from django.urls import reverse
 
 User = get_user_model()
 
@@ -53,33 +54,6 @@ class Location(PostCreationModel):
         return self.name[:SHOW_SYMBOLS]
 
 
-class Comment(PostCreationModel):
-    """Модель комментария."""
-
-    author = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='comments',
-        verbose_name='{author} прокомментировал: ',
-    )
-    post = models.ForeignKey(
-        'Post',
-        on_delete=models.CASCADE,
-        blank=True,
-        null=True,
-        related_name='comments'
-    )
-    text = models.TextField('Текст')
-
-    class Meta:
-        ordering = ('created_at',)
-        verbose_name = 'комментарий'
-        verbose_name_plural = 'Комментарии'
-
-    def __str__(self):
-        return self.text[:SHOW_SYMBOLS]
-
-
 class Post(PostCreationModel):
     """Модель отдельной публикации."""
 
@@ -120,3 +94,35 @@ class Post(PostCreationModel):
 
     def __str__(self):
         return self.title[:SHOW_SYMBOLS]
+
+    def get_absolute_url(self):
+        return reverse('blog:post_detail', kwargs={'post_id': self.pk})
+
+
+class Comment(PostCreationModel):
+    """Модель комментария."""
+
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='{author} прокомментировал: ',
+    )
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+    )
+    text = models.TextField('Текст')
+
+    class Meta:
+        default_related_name = 'comments'
+        ordering = ('created_at',)
+        verbose_name = 'комментарий'
+        verbose_name_plural = 'Комментарии'
+
+    def __str__(self):
+        return self.text[:SHOW_SYMBOLS]
+
+    def get_absolute_url(self):
+        return reverse('blog:post_detail', kwargs={'post_id': self.post.pk})

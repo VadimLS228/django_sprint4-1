@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Category, Location, Post
+from .models import Category, Location, Post, Comment
 
 
 @admin.register(Category)
@@ -60,3 +60,21 @@ class PostAdmin(admin.ModelAdmin):
     search_fields = ('title', 'author',)
     list_filter = ('category',)
     list_display_links = ('title',)
+
+
+@admin.register(Comment)
+class CommentAdmin(admin.ModelAdmin):
+    """Комментарии отображены в админ-панели.
+    Можно снять с публикации оскорбительный коммент/спам."""
+
+    list_display = (
+        'post',
+        'text',
+        'is_published',
+        'created_at'
+    )
+    list_editable = (
+        'is_published',
+    )
+    search_fields = ('post', 'text',)
+    list_display_links = ('post',)
