@@ -56,7 +56,7 @@ class CategoryListView(PostListsMixin):
         )
         queryset = super().get_queryset(*args, **kwargs).filter(
             category=self.category
-            )
+        )
         return queryset
 
     def get_context_data(self, *args, **kwargs):
@@ -79,8 +79,8 @@ class ProfileDetailView(PostListsMixin):
                 author=self.user
             )
         queryset = Post.objects.all().order_by('-pub_date').filter(
-                author=self.user
-            ).annotate(
+            author=self.user
+        ).annotate(
             comment_count=Count('comments')
         )
         return queryset
