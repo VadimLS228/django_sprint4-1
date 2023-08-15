@@ -9,7 +9,9 @@ class CategoryAdmin(admin.ModelAdmin):
     Можно удалить/опубликовать или сменить слаг.
     """
 
-    list_display = ("title", "description", "slug", "is_published", "created_at")
+    list_display = (
+        "title", "description", "slug", "is_published", "created_at"
+    )
     list_editable = ("is_published", "slug")
     search_fields = (
         "title",
@@ -33,7 +35,9 @@ class PostAdmin(admin.ModelAdmin):
     """Публикации отображены в админ-панели.
     Можно удалить/опубликовать и переместить в другую категорию."""
 
-    list_display = ("title", "author", "category", "text", "is_published", "created_at")
+    list_display = (
+        "title", "author", "category", "text", "is_published", "created_at"
+    )
     list_editable = ("is_published", "category")
     search_fields = (
         "title",
