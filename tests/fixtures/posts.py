@@ -28,8 +28,7 @@ def posts_with_unpublished_category(mixer: Mixer, user: Model):
 @pytest.fixture
 def future_posts(mixer: Mixer, user: Model):
     date_later_now = (
-        datetime.now(tz=pytz.UTC) + timedelta(days=date)
-        for date in range(1, 11)
+        datetime.now(tz=pytz.UTC) + timedelta(days=date) for date in range(1, 11)
     )
     return mixer.cycle(N_PER_FIXTURE).blend(
         "blog.Post", author=user, pub_date=date_later_now
@@ -51,8 +50,7 @@ def unpublished_posts_with_published_locations(
 
 @pytest.fixture
 def post_with_another_category(
-    mixer: Mixer, user, published_location, published_category,
-        another_category
+    mixer: Mixer, user, published_location, published_category, another_category
 ):
     assert published_category.id != another_category.id
     return mixer.blend(
@@ -65,7 +63,7 @@ def post_with_another_category(
 
 @pytest.fixture
 def post_of_another_author(
-    mixer: Mixer, user, another_user,  published_location, published_category
+    mixer: Mixer, user, another_user, published_location, published_category
 ):
     assert user.id != another_user.id
     return mixer.blend(

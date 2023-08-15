@@ -5,15 +5,20 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('blog', '0011_alter_comment_author'),
+        ("blog", "0011_alter_comment_author"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='post',
-            name='comments',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='comments', to='blog.comment'),
+            model_name="post",
+            name="comments",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="comments",
+                to="blog.comment",
+            ),
         ),
     ]

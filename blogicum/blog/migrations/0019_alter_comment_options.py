@@ -4,14 +4,18 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('blog', '0018_alter_post_options'),
+        ("blog", "0018_alter_post_options"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='comment',
-            options={'default_related_name': 'comments', 'ordering': ('created_at',), 'verbose_name': 'комментарий', 'verbose_name_plural': 'Комментарии'},
+            name="comment",
+            options={
+                "default_related_name": "comments",
+                "ordering": ("created_at",),
+                "verbose_name": "комментарий",
+                "verbose_name_plural": "Комментарии",
+            },
         ),
     ]
