@@ -34,6 +34,21 @@ class PostListsMixin(ListView):
         )
 
 
+class PostRedactMixin():
+    model = Post
+    template_name = "blog/create.html"
+    pk_url_kwarg = "post_id"
+
+    def dispatch(self, request, *args, **kwargs):
+        """Проверить, является ли пользователь из запроса автором поста.
+        Если нет-перенаправление на стр поста.
+        """
+
+        if self.get_object().author != self.request.user:
+            return redirect("blog:post_detail", post_id=kwargs["post_id"])
+        return super().dispatch(request, args, **kwargs)
+
+
 class CommentRedactMixin():
     model = Comment
     template_name = "blog/comment.html"

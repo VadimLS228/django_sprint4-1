@@ -2,12 +2,13 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count
 from django.http import Http404
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404
 from django.urls import reverse
+from django.utils import timezone
 from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 
 from .forms import CommentForm, PostForm, ProfileForm
-from .mixins import CommentRedactMixin, PostListsMixin
+from .mixins import CommentRedactMixin, PostListsMixin, PostRedactMixin
 from .models import Category, Comment, Post
 
 User = get_user_model()
@@ -81,12 +82,13 @@ class PostDetailView(DetailView):
         Определить автор или не автор делает запрос.
         Показать любой пост автору и только если опубликован - не автору.
         """
-        pk = self.kwargs.get("post_id")
-        object = Post.objects.filter(pk=pk)
+
         post = get_object_or_404(Post, id=self.kwargs["post_id"])
-        if post.author != self.request.user and not post.is_published:
+        if post.author != self.request.user and (
+            not post.is_published or post.pub_date > timezone.now()
+        ):
             raise Http404()
-        return object.get()
+        return post
 
     def get_context_data(self, **kwargs):
         """
@@ -118,27 +120,11 @@ class PostCreateView(LoginRequiredMixin, CreateView):
         return reverse("blog:profile", kwargs={"username": username})
 
 
-class PostRedactMixin(LoginRequiredMixin):
-    model = Post
-    pk_url_kwarg = "post_id"
-
-    def dispatch(self, request, *args, **kwargs):
-        """Проверить, является ли пользователь из запроса автором поста.
-        Если нет-перенаправление на стр поста.
-        """
-
-        if self.get_object().author != self.request.user:
-            return redirect("blog:post_detail", post_id=kwargs["post_id"])
-        return super().dispatch(request, args, **kwargs)
-
-
-class PostUpdateView(PostRedactMixin, UpdateView):
+class PostUpdateView(PostRedactMixin, LoginRequiredMixin, UpdateView):
     form_class = PostForm
-    template_name = "blog/create.html"
 
 
-class PostDeleteView(PostRedactMixin, DeleteView):
-    template_name = "blog/create.html"
+class PostDeleteView(PostRedactMixin, LoginRequiredMixin, DeleteView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
