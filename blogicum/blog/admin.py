@@ -33,7 +33,8 @@ class LocationAdmin(admin.ModelAdmin):
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
     """Публикации отображены в админ-панели.
-    Можно удалить/опубликовать и переместить в другую категорию."""
+    Можно удалить/опубликовать и переместить в другую категорию.
+    """
 
     list_display = (
         "title", "author", "category", "text", "is_published", "created_at"
@@ -50,7 +51,8 @@ class PostAdmin(admin.ModelAdmin):
 @admin.register(Comment)
 class CommentAdmin(admin.ModelAdmin):
     """Комментарии отображены в админ-панели.
-    Можно снять с публикации оскорбительный коммент/спам."""
+    Можно снять с публикации оскорбительный коммент/спам.
+    """
 
     list_display = ("post", "text", "is_published", "created_at")
     list_editable = ("is_published",)

@@ -82,7 +82,6 @@ class PostDetailView(DetailView):
         Определить автор или не автор делает запрос.
         Показать любой пост автору и только если опубликован - не автору.
         """
-
         post = get_object_or_404(Post, id=self.kwargs["post_id"])
         if post.author != self.request.user and (
             not post.is_published or post.pub_date > timezone.now()
@@ -95,7 +94,6 @@ class PostDetailView(DetailView):
         Запросить все комменты для выбранного поста
         Дополнительно подгрузить авторов комментариев.
         """
-
         context = super().get_context_data(**kwargs)
         context["form"] = CommentForm()
         context["comments"] = self.object.comments.select_related("author")
@@ -111,7 +109,6 @@ class PostCreateView(LoginRequiredMixin, CreateView):
         """Присвоить полю author объект пользователя из запроса.
         Продолжить валидацию, описанную в форме.
         """
-
         form.instance.author = self.request.user
         return super().form_valid(form)
 
@@ -145,7 +142,6 @@ class CommentCreateView(LoginRequiredMixin, CreateView):
         """Переопределить поля формы,присвоив им значения
         автора запроса(комментария) и комментируемого поста.
         """
-
         form.instance.author = self.request.user
         form.instance.post = get_object_or_404(Post, pk=self.kwargs["post_id"])
         return super().form_valid(form)
@@ -158,7 +154,6 @@ class ProfileUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_object(self):
         """Получить объект юзера как пользователя из запроса."""
-
         return self.request.user
 
     def get_success_url(self):

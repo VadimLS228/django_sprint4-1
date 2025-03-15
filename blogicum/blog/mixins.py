@@ -21,7 +21,6 @@ class PostListsMixin(ListView):
 
     def get_queryset(self, *args, **kwargs):
         """Получить список постов в соотв-ии с авторм/местом/категорией."""
-
         return (
             Post.objects.select_related("author", "category", "location")
             .filter(
@@ -33,6 +32,7 @@ class PostListsMixin(ListView):
             .annotate(comment_count=Count("comments"))
         )
 
+
 class PostRedactMixin():
     model = Post
     template_name = "blog/create.html"
@@ -42,10 +42,10 @@ class PostRedactMixin():
         """Проверить, является ли пользователь из запроса автором поста.
         Если нет-перенаправление на стр поста.
         """
-
         if self.get_object().author != self.request.user:
             return redirect("blog:post_detail", post_id=kwargs["post_id"])
         return super().dispatch(request, args, **kwargs)
+
 
 class CommentRedactMixin():
     model = Comment
@@ -56,9 +56,6 @@ class CommentRedactMixin():
         """Проверить, является ли польз-ль из запроса автором коммента.
         Если нет - перенаправить на страницу деталей поста.
         """
-
         if self.get_object().author != self.request.user:
             return redirect("blog:post_detail", post_id=kwargs["post_id"])
         return super().dispatch(request, args, **kwargs)
-
-
